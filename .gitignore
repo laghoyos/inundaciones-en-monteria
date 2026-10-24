@@ -1,0 +1,4 @@
+.venv/
+*.tif
+outputs/_check.png
+outputs/web/_osm_cache/

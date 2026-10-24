@@ -1,0 +1,401 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Agua de lluvia en Montería</title>
+<meta name="description" content="Mapa interactivo de por dónde corre y dónde se empoza el agua de lluvia en Montería, a partir de un modelo del terreno de 1 m.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@75..100,500..800&family=Atkinson+Hyperlegible:ital,wght@0,400;0,700;1,400&display=swap">
+<link rel="stylesheet" href="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.css">
+<style>
+/* Layout: full-height map with a side panel (bottom panel on phones); panel order = what a reader needs first. */
+:root {
+  --paper: #f5f7f9; --card: #ffffff; --ink: #15212e; --muted: #536171; --rule: #d9e0e7;
+  --accent: #1f5f9e; --chip: #e8eef5; --focus: #1f5f9e;
+  --display: "Archivo", "Arial Narrow", "Helvetica Neue", Arial, sans-serif;
+  --body: "Atkinson Hyperlegible", "Segoe UI", Verdana, sans-serif;
+  color-scheme: light;
+}
+@media (prefers-color-scheme: dark) {
+  :root { --paper: #0f1720; --card: #16212d; --ink: #e6edf4; --muted: #9fb0c2; --rule: #2a3847;
+          --accent: #8cc0f5; --chip: #1f2c3a; --focus: #8cc0f5; color-scheme: dark; }
+}
+* { box-sizing: border-box; }
+html, body { height: 100%; margin: 0; }
+body { background: var(--paper); color: var(--ink); font-family: var(--body); font-size: 15px; line-height: 1.5; }
+.app { display: grid; grid-template-columns: 23.5rem minmax(0, 1fr); height: 100%; }
+#map { height: 100%; min-height: 0; }
+aside { overflow-y: auto; background: var(--card); border-right: 1px solid var(--rule); display: grid; align-content: start; gap: 0;
+        padding-bottom: env(safe-area-inset-bottom, 0px); padding-left: env(safe-area-inset-left, 0px); }
+.blk { padding: 1rem 1.15rem; border-bottom: 1px solid var(--rule); display: grid; gap: 0.6rem; }
+h1, h2 { font-family: var(--display); font-stretch: 85%; margin: 0; line-height: 1.15; text-wrap: balance; }
+h1 { font-size: 1.55rem; font-weight: 800; }
+h2 { font-size: 0.78rem; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; color: var(--muted); }
+p { margin: 0; }
+.muted { color: var(--muted); }
+.small { font-size: 0.87rem; }
+a { color: var(--accent); }
+:focus-visible { outline: 3px solid var(--focus); outline-offset: 2px; }
+
+.seg { display: grid; grid-template-columns: repeat(3, 1fr); border: 1px solid var(--rule); border-radius: 6px; overflow: hidden; }
+.seg button { font: inherit; font-weight: 700; padding: 0.5rem 0; border: 0; background: var(--card); color: var(--ink); cursor: pointer; }
+.seg button + button { border-left: 1px solid var(--rule); }
+.seg button[aria-pressed="true"] { background: var(--accent); color: var(--card); }
+.stat { font-variant-numeric: tabular-nums; }
+.stat b { font-family: var(--display); font-stretch: 85%; font-size: 1.35rem; }
+
+.layer { display: grid; grid-template-columns: auto 2.4rem minmax(0, 1fr); gap: 0.15rem 0.6rem; align-items: center; }
+.layer input[type="checkbox"] { width: 1.05rem; height: 1.05rem; margin: 0; accent-color: var(--accent); }
+.layer label { font-weight: 700; cursor: pointer; }
+.layer .desc { grid-column: 3; font-size: 0.85rem; color: var(--muted); }
+.layer .ctl { grid-column: 3; display: flex; gap: 0.5rem; align-items: center; font-size: 0.8rem; color: var(--muted); }
+.layer input[type="range"] { width: 100%; accent-color: var(--accent); }
+.sw { width: 2.4rem; height: 1.2rem; border-radius: 3px; border: 1px solid rgba(0,0,0,0.12); grid-row: 1; grid-column: 2; }
+.ramp { display: grid; grid-template-columns: repeat(4, 1fr); gap: 2px; grid-column: 3; font-size: 0.75rem; color: var(--muted); }
+.ramp span { display: grid; gap: 2px; }
+.ramp i { height: 0.55rem; border-radius: 2px; display: block; }
+
+.radio { display: flex; flex-wrap: wrap; gap: 0.4rem; }
+.radio label { display: flex; gap: 0.35rem; align-items: center; padding: 0.3rem 0.6rem; border: 1px solid var(--rule); border-radius: 999px; cursor: pointer; font-size: 0.9rem; }
+.radio input { accent-color: var(--accent); margin: 0; }
+.toggle3d { display: flex; gap: 0.5rem; align-items: center; font-weight: 700; cursor: pointer; }
+.toggle3d input { width: 1.05rem; height: 1.05rem; margin: 0; accent-color: var(--accent); }
+
+ol.top { list-style: none; margin: 0; padding: 0; display: grid; gap: 0.3rem; }
+ol.top button { width: 100%; display: grid; grid-template-columns: 1.8rem minmax(0, 1fr) auto; gap: 0.5rem; align-items: baseline; text-align: left;
+                font: inherit; color: var(--ink); background: transparent; border: 1px solid transparent; border-radius: 5px; padding: 0.35rem 0.4rem; cursor: pointer; }
+ol.top button:hover { background: var(--chip); }
+ol.top .n { font-family: var(--display); font-weight: 800; font-size: 1.05rem; color: var(--accent); }
+ol.top .v { font-size: 0.82rem; color: var(--muted); font-variant-numeric: tabular-nums; white-space: nowrap; }
+details { border-top: 1px solid var(--rule); }
+details:first-of-type { border-top: 0; }
+summary { cursor: pointer; font-weight: 700; padding: 0.55rem 0; }
+details > div { display: grid; gap: 0.5rem; padding-bottom: 0.8rem; font-size: 0.9rem; }
+details ul { margin: 0; padding-left: 1.1rem; display: grid; gap: 0.35rem; }
+
+/* map overlays */
+.maplibregl-popup-content { font-family: var(--body); font-size: 0.9rem; line-height: 1.45; color: #15212e; padding: 0.75rem 0.95rem; border-radius: 6px; max-width: 18rem; }
+.maplibregl-popup-content h3 { font-family: var(--display); font-stretch: 85%; font-size: 1.05rem; margin: 0 0 0.3rem; }
+.maplibregl-popup-content p { margin: 0.15rem 0; }
+.maplibregl-popup-content a { color: #1f5f9e; }
+.maplibregl-popup-close-button { font-size: 18px; padding: 0 6px; }
+.rk { font-family: var(--display); font-weight: 800; font-size: 0.8rem; color: #1b1b2f; background: rgba(255,255,255,0.92);
+      border-radius: 3px; padding: 0 0.28rem; transform: translate(14px, 0); pointer-events: none; box-shadow: 0 0 0 1px rgba(0,0,0,0.15); }
+.loading { position: absolute; top: 0.75rem; left: 50%; transform: translateX(-50%); background: rgba(21,33,46,0.86); color: #fff; padding: 0.3rem 0.8rem;
+           border-radius: 999px; font-size: 0.85rem; z-index: 5; }
+.mapwrap { position: relative; min-height: 0; }
+
+@media (max-width: 760px) {
+  .app { grid-template-columns: minmax(0, 1fr); grid-template-rows: 58vh auto; height: auto; }
+  .mapwrap { height: 58vh; }
+  aside { border-right: 0; border-top: 1px solid var(--rule); overflow: visible; padding-right: env(safe-area-inset-right, 0px); }
+  .app > .mapwrap { order: -1; }
+}
+@media (prefers-reduced-motion: reduce) { * { scroll-behavior: auto !important; } }
+</style>
+</head>
+<body>
+<div class="app">
+  <aside aria-label="Panel del mapa">
+    <div class="blk">
+      <h1>¿Para dónde corre el agua de lluvia en Montería, y dónde se queda?</h1>
+      <p class="muted small">Simulación sobre un modelo del terreno de 1&nbsp;m. Use la rueda del ratón para acercarse y toque cualquier línea, mancha o punto para ver qué significa.</p>
+    </div>
+
+    <div class="blk">
+      <h2 id="lbl-rain">Aguacero simulado</h2>
+      <div class="seg" role="group" aria-labelledby="lbl-rain">
+        <button type="button" data-mm="30" aria-pressed="false">30 mm</button>
+        <button type="button" data-mm="60" aria-pressed="false">60 mm</button>
+        <button type="button" data-mm="100" aria-pressed="true">100 mm</button>
+      </div>
+      <p class="stat small" id="stat"></p>
+      <p class="muted small">1&nbsp;mm = 1 litro por metro cuadrado. 30&nbsp;mm es un aguacero común; 100&nbsp;mm, uno muy fuerte.</p>
+    </div>
+
+    <div class="blk">
+      <h2>Capas</h2>
+      <div class="layer">
+        <input type="checkbox" id="l-pond" checked><div class="sw" style="background:linear-gradient(90deg,#9ec5f4,#5598e7,#256abf,#0d366b)"></div><label for="l-pond">Agua empozada</label>
+        <span class="desc">Dónde se queda el agua y qué tan hondo.</span>
+        <div class="ramp" aria-hidden="true"><span><i style="background:#9ec5f4"></i>5–25 cm</span><span><i style="background:#5598e7"></i>25–50 cm</span><span><i style="background:#256abf"></i>0,5–1 m</span><span><i style="background:#0d366b"></i>+1 m</span></div>
+      </div>
+      <div class="layer">
+        <input type="checkbox" id="l-flow" checked><div class="sw" style="background:linear-gradient(0deg,transparent 40%,#131359 40% 60%,transparent 60%),#e4ebf3"></div><label for="l-flow">Caminos del agua</label>
+        <span class="desc">Por dónde baja la lluvia. Más gruesa = más agua.</span>
+      </div>
+      <div class="layer">
+        <input type="checkbox" id="l-pts" checked><div class="sw" style="background:radial-gradient(circle,#d9480f 0 34%,#fff 35% 44%,transparent 45%),#f3f1ee"></div><label for="l-pts">Puntos críticos</label>
+        <span class="desc">Los 79 sitios donde más agua se acumula; los 10 peores llevan número.</span>
+      </div>
+      <div class="layer">
+        <input type="checkbox" id="l-alt"><div class="sw" style="background:linear-gradient(90deg,#08306b,#2979b9,#74b3d8,#c9ddf0,#e0ecf8)"></div><label for="l-alt">Altura del terreno</label>
+        <span class="desc">Azul oscuro = terreno bajo (14&nbsp;m); claro = alto (23&nbsp;m o más).</span>
+        <div class="ctl"><label for="o-alt" class="small">Opacidad</label><input type="range" id="o-alt" min="0" max="1" step="0.05" value="0.5"></div>
+      </div>
+      <div class="layer">
+        <input type="checkbox" id="l-hs" checked><div class="sw" style="background:linear-gradient(135deg,#f2f2f2 0 30%,#9a9a9a 55%,#3d3d3d 100%)"></div><label for="l-hs">Relieve sombreado</label>
+        <span class="desc">Calculado en vivo desde el modelo del terreno.</span>
+      </div>
+      <div class="layer">
+        <input type="checkbox" id="l-rem"><div class="sw" style="background:linear-gradient(90deg,#6a3d9a,#9e7cc1,#c9b6e0,#e7def2)"></div><label for="l-rem">Zonas bajas junto al río</label>
+        <span class="desc">Altura sobre el agua del Sinú: &lt;1, 1–2, 2–3 y 3–4&nbsp;m. Lo más oscuro se inunda primero si el río se desborda.</span>
+      </div>
+    </div>
+
+    <div class="blk">
+      <h2>Mapa base</h2>
+      <div class="radio" role="radiogroup" aria-label="Mapa base">
+        <label><input type="radio" name="base" value="osm" checked>Calles</label>
+        <label><input type="radio" name="base" value="sat">Satélite</label>
+        <label><input type="radio" name="base" value="none">Ninguno</label>
+      </div>
+      <label class="toggle3d"><input type="checkbox" id="t-3d">Vista en 3D <span class="muted small" style="font-weight:400">(relieve exagerado 5 veces)</span></label>
+    </div>
+
+    <div class="blk">
+      <h2>Los 10 puntos más críticos</h2>
+      <ol class="top" id="top"></ol>
+      <p class="muted small">Barrio aproximado según OpenStreetMap. Ordenados por extensión × profundidad del agua con un aguacero de 60&nbsp;mm.</p>
+    </div>
+
+    <div class="blk">
+      <h2>Cómo leer este mapa</h2>
+      <details>
+        <summary>¿Qué se simuló?</summary>
+        <div>
+          <p>Cae la misma lluvia en toda la ciudad. El 60&nbsp;% corre por el suelo (el resto se infiltra) y sigue siempre lo más bajo, por los <em>caminos del agua</em>, hasta caer en una hondonada. Cuando una hondonada se llena, el sobrante sigue a la siguiente.</p>
+          <p>Las manchas azules son el agua que queda empozada al final. Los puntos marcan las 79 hondonadas con al menos 0,2&nbsp;ha y 25&nbsp;cm de agua.</p>
+        </div>
+      </details>
+      <details>
+        <summary>Lo que este mapa no muestra</summary>
+        <div>
+          <ul>
+            <li><b>El alcantarillado.</b> Donde los sumideros funcionan habrá menos agua; donde están tapados, más.</li>
+            <li><b>El desbordamiento del Sinú.</b> Es otro problema; la capa «Zonas bajas junto al río» da una idea de dónde pegaría primero.</li>
+            <li><b>Humedales permanentes.</b> Algunas manchas pueden ser lagunas que siempre tienen agua. Compárelas con la vista de satélite.</li>
+            <li><b>Detalles de menos de 25&nbsp;cm.</b> El modelo del terreno tiene errores pequeños; las hondonadas muy poco profundas pueden no ser reales.</li>
+            <li><b>El borde de la zona medida.</b> Fuera del área con datos del terreno no hay simulación; las manchas que tocan ese borde podrían ser más grandes.</li>
+          </ul>
+        </div>
+      </details>
+      <details>
+        <summary>Palabras que usamos</summary>
+        <div>
+          <p><b>Hondonada:</b> parte del terreno más baja que todo lo que la rodea; el agua entra pero no sale hasta que se llena.</p>
+          <p><b>Hectárea (ha):</b> un cuadrado de 100 × 100&nbsp;m. Una cancha de fútbol mide unos 0,7&nbsp;ha.</p>
+          <p><b>Área que drena:</b> todo el terreno cuya lluvia pasa por un mismo punto.</p>
+          <p><b>Modelo del terreno:</b> la altura del suelo, sin casas ni árboles, con un dato por metro cuadrado.</p>
+        </div>
+      </details>
+    </div>
+
+    <div class="blk">
+      <p class="muted small">Fuente: modelo digital del terreno de Montería, 1&nbsp;m (EPSG:9377), procesado con WhiteboxTools. Calles © colaboradores de OpenStreetMap. Satélite © Esri y sus proveedores. <a href="https://github.com/laghoyos/inundaciones-en-monteria" target="_blank" rel="noopener">Código y datos</a>.</p>
+    </div>
+  </aside>
+
+  <div class="mapwrap">
+    <div id="map" role="region" aria-label="Mapa interactivo de Montería"></div>
+    <div class="loading" id="loading">Cargando capas…</div>
+  </div>
+</div>
+
+<script src="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.js"></script>
+<script>
+(function () {
+  "use strict";
+  var BOUNDS = [-75.91579, 8.71019, -75.83715, 8.81628];
+  var STATS = { 30: { ha: 202, full: 75 }, 60: { ha: 267, full: 94 }, 100: { ha: 316, full: 103 } };
+  var reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+  var mm = 100;
+  var fmt = function (n, d) { return Number(n).toLocaleString("es-CO", { maximumFractionDigits: d === undefined ? 1 : d }); };
+
+  var map = new maplibregl.Map({
+    container: "map",
+    hash: true,
+    bounds: BOUNDS,
+    fitBoundsOptions: { padding: 20 },
+    maxBounds: [[BOUNDS[0] - 0.12, BOUNDS[1] - 0.12], [BOUNDS[2] + 0.12, BOUNDS[3] + 0.12]],
+    maxZoom: 19.5,
+    maxPitch: 75,
+    attributionControl: { compact: true },
+    style: {
+      version: 8,
+      sources: {
+        osm: { type: "raster", tiles: ["https://tile.openstreetmap.org/{z}/{x}/{y}.png"], tileSize: 256, maxzoom: 19,
+               attribution: '© <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">colaboradores de OpenStreetMap</a>' },
+        sat: { type: "raster", tiles: ["https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}"],
+               tileSize: 256, maxzoom: 19, attribution: "Satélite © Esri, Maxar, Earthstar Geographics" },
+        altura: { type: "raster", tiles: ["tiles/altura/{z}/{x}/{y}.webp"], tileSize: 512, minzoom: 11, maxzoom: 16, bounds: BOUNDS },
+        hs: { type: "raster-dem", tiles: ["tiles/terrain/{z}/{x}/{y}.png"], tileSize: 512, minzoom: 11, maxzoom: 16,
+              encoding: "terrarium", bounds: BOUNDS, attribution: "Terreno: DTM Montería 1 m" },
+        dem3d: { type: "raster-dem", tiles: ["tiles/terrain/{z}/{x}/{y}.png"], tileSize: 512, minzoom: 11, maxzoom: 16,
+                 encoding: "terrarium", bounds: BOUNDS }
+      },
+      layers: [
+        { id: "bg", type: "background", paint: { "background-color": "#eef0ec" } },
+        { id: "osm", type: "raster", source: "osm", paint: { "raster-opacity": 0.9 } },
+        { id: "sat", type: "raster", source: "sat", layout: { visibility: "none" } },
+        { id: "altura", type: "raster", source: "altura", paint: { "raster-opacity": 0.5, "raster-resampling": "linear" } },
+        { id: "hillshade", type: "hillshade", source: "hs",
+          paint: { "hillshade-exaggeration": 0.6, "hillshade-shadow-color": "rgba(20,20,30,0.55)",
+                   "hillshade-highlight-color": "rgba(255,255,255,0.25)", "hillshade-accent-color": "rgba(0,0,0,0.15)" } }
+      ]
+    }
+  });
+
+  map.addControl(new maplibregl.NavigationControl({ visualizePitch: true }), "top-right");
+  map.addControl(new maplibregl.FullscreenControl(), "top-right");
+  map.addControl(new maplibregl.GeolocateControl({ positionOptions: { enableHighAccuracy: true }, trackUserLocation: false }), "top-right");
+  map.addControl(new maplibregl.ScaleControl({ unit: "metric" }), "bottom-left");
+
+  var PTS = null, labels = [];
+  function get(url) { return fetch(url).then(function (r) { if (!r.ok) throw new Error(url); return r.json(); }); }
+
+  var FLOW_W = ["match", ["get", "clase"], "0.5-5 ha", 0, "5-50 ha", 1, "50-500 ha", 2, "> 500 ha", 3, 0];
+  map.on("load", function () {
+    Promise.all([get("data/encharcamiento_30mm.geojson"), get("data/encharcamiento_60mm.geojson"), get("data/encharcamiento_100mm.geojson"),
+                 get("data/rutas_flujo.geojson"), get("data/puntos_criticos.geojson"), get("data/altura_sobre_rio.geojson")])
+      .then(function (d) {
+        map.addSource("rem", { type: "geojson", data: d[5] });
+        map.addLayer({ id: "rem", type: "fill", source: "rem", layout: { visibility: "none" },
+          paint: { "fill-color": ["match", ["get", "altura_sobre_rio"], "< 1 m", "#6a3d9a", "1-2 m", "#9e7cc1", "2-3 m", "#c9b6e0", "#e7def2"],
+                   "fill-opacity": ["match", ["get", "altura_sobre_rio"], "< 1 m", 0.5, "1-2 m", 0.4, "2-3 m", 0.32, 0.25] } });
+        [30, 60, 100].forEach(function (p, i) {
+          map.addSource("pond" + p, { type: "geojson", data: d[i] });
+          map.addLayer({ id: "pond" + p, type: "fill", source: "pond" + p, layout: { visibility: p === mm ? "visible" : "none" },
+            paint: { "fill-color": ["match", ["get", "profundidad"], "0.05-0.25 m", "#9ec5f4", "0.25-0.5 m", "#5598e7", "0.5-1 m", "#256abf", "#0d366b"],
+                     "fill-opacity": 0.8 } });
+        });
+        map.addSource("flow", { type: "geojson", data: d[3] });
+        map.addLayer({ id: "flow", type: "line", source: "flow", layout: { "line-cap": "round", "line-join": "round" },
+          paint: { "line-color": "#131359",
+                   "line-width": ["interpolate", ["linear"], ["zoom"],
+                     12, ["+", 0.4, ["*", 0.45, FLOW_W]],
+                     15, ["+", 0.8, ["*", 0.9, FLOW_W]],
+                     18, ["+", 1.5, ["*", 1.6, FLOW_W]]] } });
+        // invisible wide line to make thin paths easy to tap
+        map.addLayer({ id: "flow-hit", type: "line", source: "flow", paint: { "line-color": "#000", "line-opacity": 0, "line-width": 12 } });
+        PTS = d[4];
+        map.addSource("pts", { type: "geojson", data: PTS });
+        map.addLayer({ id: "pts", type: "circle", source: "pts",
+          paint: { "circle-color": "#d9480f", "circle-stroke-color": "#ffffff", "circle-stroke-width": 1.5,
+                   "circle-radius": ["interpolate", ["linear"], ["zoom"], 12, ["case", ["<=", ["get", "rank"], 10], 5, 3.5], 16, ["case", ["<=", ["get", "rank"], 10], 9, 7]] } });
+        PTS.features.filter(function (f) { return f.properties.rank <= 10; }).forEach(function (f) {
+          var el = document.createElement("div");
+          el.className = "rk"; el.textContent = f.properties.rank;
+          labels.push(new maplibregl.Marker({ element: el, anchor: "left" }).setLngLat(f.geometry.coordinates).addTo(map));
+        });
+        buildTop();
+        wireLayers();
+        setRain(mm);
+        document.getElementById("loading").remove();
+      })
+      .catch(function () { document.getElementById("loading").textContent = "No se pudieron cargar las capas. Recargue la página."; });
+  });
+
+  // ---------- popups
+  function fillText(p) {
+    var f = function (k) { return Number(p["fill_pct_" + k + "mm"]); };
+    if (f(30) >= 100) return "Se llena del todo con apenas 30 mm.";
+    if (f(60) >= 100) return "Se llena del todo con 60 mm.";
+    if (f(100) >= 100) return "Se llena del todo con 100 mm.";
+    return "Con 100 mm se llena al " + fmt(f(100), 0) + " %.";
+  }
+  function pointHtml(p) {
+    var conf = p.confidence === "alta" ? "Confianza alta." :
+               p.confidence === "media (borde)" ? "Confianza media: la mancha llega al borde de la zona medida." : "Confianza " + p.confidence + ".";
+    return "<h3>Punto crítico n.º " + p.rank + "</h3>" + (p.barrio ? "<p>" + p.barrio + "</p>" : "") +
+      "<p>Con " + mm + " mm de lluvia: <strong>" + fmt(p["pond_ha_" + mm + "mm"]) + " ha</strong> bajo el agua, hasta <strong>" +
+      fmt(p["pond_max_m_" + mm + "mm"], 2) + " m</strong> de profundidad.</p>" +
+      "<p>" + fillText(p) + " Le llega el agua de " + fmt(p.catchment_ha, 0) + " ha.</p><p>" + conf + "</p>" +
+      '<p><a href="https://www.google.com/maps?q=' + p.lat + "," + p.lon + '" target="_blank" rel="noopener">Abrir en Google Maps</a></p>';
+  }
+  var DEPTH = { "0.05-0.25 m": "5 a 25 cm", "0.25-0.5 m": "25 a 50 cm", "0.5-1 m": "50 cm a 1 m", "> 1 m": "más de 1 m" };
+  var REM = { "< 1 m": "menos de 1 m", "1-2 m": "entre 1 y 2 m", "2-3 m": "entre 2 y 3 m", "3-4 m": "entre 3 y 4 m" };
+  var popup = new maplibregl.Popup({ closeButton: true, maxWidth: "19rem" });
+  function clickable() { return ["pts", "pond" + mm, "flow-hit", "rem"].filter(function (id) { return map.getLayer(id) && map.getLayoutProperty(id, "visibility") !== "none" && (id !== "flow-hit" || map.getLayoutProperty("flow", "visibility") !== "none"); }); }
+  map.on("click", function (e) {
+    var f = map.queryRenderedFeatures(e.point, { layers: clickable() });
+    if (!f.length) return;
+    var top = f[0], p = top.properties, html;
+    if (top.layer.id === "pts") html = pointHtml(p);
+    else if (top.layer.id.indexOf("pond") === 0)
+      html = "<h3>Agua empozada</h3><p>Con un aguacero de " + mm + " mm el agua queda aquí con una profundidad de <strong>" + (DEPTH[p.profundidad] || p.profundidad) +
+             "</strong>.</p><p>Esta franja ocupa " + fmt(p.area_ha, 2) + " ha.</p>";
+    else if (top.layer.id === "flow-hit")
+      html = "<h3>Camino del agua</h3><p>Por aquí baja la lluvia que cae sobre <strong>" + fmt(p.area_drenante_ha) + " ha</strong> de terreno (unas " +
+             fmt(p.area_drenante_ha / 0.7, 0) + " canchas de fútbol).</p>";
+    else html = "<h3>Zona baja junto al río</h3><p>Este terreno está <strong>" + (REM[p.altura_sobre_rio] || p.altura_sobre_rio) +
+             "</strong> por encima del agua del Sinú (el día en que se midió). Las orillas están unos 3–4 m por encima.</p>";
+    popup.setLngLat(e.lngLat).setHTML(html).addTo(map);
+  });
+  map.on("mousemove", function (e) {
+    var ids = clickable();
+    map.getCanvas().style.cursor = ids.length && map.queryRenderedFeatures(e.point, { layers: ids }).length ? "pointer" : "";
+  });
+
+  // ---------- panel wiring
+  function setVis(ids, on) { ids.forEach(function (id) { if (map.getLayer(id)) map.setLayoutProperty(id, "visibility", on ? "visible" : "none"); }); }
+  function setRain(v) {
+    mm = v;
+    document.querySelectorAll(".seg button").forEach(function (b) { b.setAttribute("aria-pressed", String(Number(b.dataset.mm) === v)); });
+    var on = document.getElementById("l-pond").checked;
+    [30, 60, 100].forEach(function (p) { setVis(["pond" + p], on && p === v); });
+    document.getElementById("stat").innerHTML = "<b>" + fmt(STATS[v].ha, 0) + " ha</b> quedan con 5 cm de agua o más (≈ " +
+      fmt(STATS[v].ha / 0.714, 0) + " canchas). <b>" + STATS[v].full + "</b> de 131 hondonadas se llenan y se desbordan.";
+    popup.remove();
+  }
+  document.querySelectorAll(".seg button").forEach(function (b) { b.addEventListener("click", function () { setRain(Number(b.dataset.mm)); }); });
+
+  function wireLayers() {
+    var bind = function (box, ids, after) {
+      var el = document.getElementById(box);
+      var apply = function () { setVis(ids(), el.checked); if (after) after(el.checked); };
+      el.addEventListener("change", apply); apply();
+    };
+    bind("l-pond", function () { return ["pond" + mm]; });
+    bind("l-flow", function () { return ["flow", "flow-hit"]; });
+    bind("l-pts", function () { return ["pts"]; }, function (on) { labels.forEach(function (m) { m.getElement().style.display = on ? "" : "none"; }); });
+    bind("l-alt", function () { return ["altura"]; });
+    bind("l-hs", function () { return ["hillshade"]; });
+    bind("l-rem", function () { return ["rem"]; });
+    document.getElementById("o-alt").addEventListener("input", function (e) { map.setPaintProperty("altura", "raster-opacity", Number(e.target.value)); });
+    document.querySelectorAll('input[name="base"]').forEach(function (r) {
+      r.addEventListener("change", function () {
+        setVis(["osm"], r.value === "osm"); setVis(["sat"], r.value === "sat");
+        map.setPaintProperty("flow", "line-color", r.value === "sat" ? "#8fd3ff" : "#131359");
+      });
+    });
+    document.getElementById("t-3d").addEventListener("change", function (e) {
+      if (e.target.checked) { map.setTerrain({ source: "dem3d", exaggeration: 5 }); map.easeTo({ pitch: 60, duration: reduce ? 0 : 1000 }); }
+      else { map.setTerrain(null); map.easeTo({ pitch: 0, duration: reduce ? 0 : 800 }); }
+    });
+  }
+
+  function buildTop() {
+    var ol = document.getElementById("top");
+    PTS.features.filter(function (f) { return f.properties.rank <= 10; })
+      .sort(function (a, b) { return a.properties.rank - b.properties.rank; })
+      .forEach(function (f) {
+        var p = f.properties, li = document.createElement("li"), b = document.createElement("button");
+        b.type = "button";
+        b.innerHTML = '<span class="n">' + p.rank + "</span><span>" + (p.barrio || "Sin nombre") + '</span><span class="v">' +
+          fmt(p.pond_ha_100mm) + " ha</span>";
+        b.setAttribute("aria-label", "Ir al punto crítico " + p.rank + ", " + p.barrio);
+        b.addEventListener("click", function () {
+          map.flyTo({ center: f.geometry.coordinates, zoom: 16.3, essential: true, duration: reduce ? 0 : 1600 });
+          map.once("moveend", function () { popup.setLngLat(f.geometry.coordinates).setHTML(pointHtml(p)).addTo(map); });
+          if (window.innerWidth <= 760) document.getElementById("map").scrollIntoView({ behavior: reduce ? "auto" : "smooth" });
+        });
+        li.appendChild(b); ol.appendChild(li);
+      });
+  }
+})();
+</script>
+</body>
+</html>
