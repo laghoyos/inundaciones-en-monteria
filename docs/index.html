@@ -131,9 +131,9 @@ details ul { margin: 0; padding-left: 1.1rem; display: grid; gap: 0.35rem; }
         <span class="desc">Los 79 sitios donde más agua se acumula; los 10 peores llevan número.</span>
       </div>
       <div class="layer">
-        <input type="checkbox" id="l-alt"><div class="sw" style="background:linear-gradient(90deg,#08306b,#2979b9,#74b3d8,#c9ddf0,#e0ecf8)"></div><label for="l-alt">Altura del terreno</label>
+        <input type="checkbox" id="l-alt" checked><div class="sw" style="background:linear-gradient(90deg,#08306b,#2979b9,#74b3d8,#c9ddf0,#e0ecf8)"></div><label for="l-alt">Altura del terreno</label>
         <span class="desc">Azul oscuro = terreno bajo (14&nbsp;m); claro = alto (23&nbsp;m o más).</span>
-        <div class="ctl"><label for="o-alt" class="small">Opacidad</label><input type="range" id="o-alt" min="0" max="1" step="0.05" value="0.5"></div>
+        <div class="ctl"><label for="o-alt" class="small">Opacidad</label><input type="range" id="o-alt" min="0" max="1" step="0.05" value="0.4"></div>
       </div>
       <div class="layer">
         <input type="checkbox" id="l-hs" checked><div class="sw" style="background:linear-gradient(135deg,#f2f2f2 0 30%,#9a9a9a 55%,#3d3d3d 100%)"></div><label for="l-hs">Relieve sombreado</label>
@@ -240,7 +240,7 @@ details ul { margin: 0; padding-left: 1.1rem; display: grid; gap: 0.35rem; }
         { id: "bg", type: "background", paint: { "background-color": "#eef0ec" } },
         { id: "osm", type: "raster", source: "osm", paint: { "raster-opacity": 0.9 } },
         { id: "sat", type: "raster", source: "sat", layout: { visibility: "none" } },
-        { id: "altura", type: "raster", source: "altura", paint: { "raster-opacity": 0.5, "raster-resampling": "linear" } },
+        { id: "altura", type: "raster", source: "altura", paint: { "raster-opacity": 0.4, "raster-resampling": "linear" } },
         { id: "hillshade", type: "hillshade", source: "hs",
           paint: { "hillshade-exaggeration": 0.6, "hillshade-shadow-color": "rgba(20,20,30,0.55)",
                    "hillshade-highlight-color": "rgba(255,255,255,0.25)", "hillshade-accent-color": "rgba(0,0,0,0.15)" } }
